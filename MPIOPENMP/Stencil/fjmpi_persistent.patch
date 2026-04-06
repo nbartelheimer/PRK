@@ -1,0 +1,129 @@
+diff --git a/MPIOPENMP/Stencil/stencil.c b/MPIOPENMP/Stencil/stencil.c
+index a8020003..fcccea04 100644
+--- a/MPIOPENMP/Stencil/stencil.c
++++ b/MPIOPENMP/Stencil/stencil.c
+@@ -70,6 +70,7 @@ HISTORY: - Written by Rob Van der Wijngaart, November 2006.
+ 
+ #include <par-res-kern_general.h>
+ #include <par-res-kern_mpiomp.h>
++#include <mpi-ext.h>
+ 
+ #if DOUBLE
+   #define DTYPE     double
+@@ -138,6 +139,7 @@ int main(int argc, char ** argv) {
+   int    error=0;         /* error flag                                          */
+   DTYPE  weight[2*RADIUS+1][2*RADIUS+1]; /* weights of points in the stencil     */
+   MPI_Request request[8];
++  unsigned send_data = 0, recv_data = 0;
+ 
+   /*******************************************************************************
+   ** Initialize the MPI environment
+@@ -348,6 +350,44 @@ int main(int argc, char ** argv) {
+   left_buf_out   = right_buf_out + 2*RADIUS*height;
+   left_buf_in    = right_buf_out + 3*RADIUS*height;
+ 
++  if (my_IDy < Num_procsy-1){
++	  send_data += RADIUS * width * sizeof(MPI_DTYPE);
++	  recv_data += RADIUS * width * sizeof(MPI_DTYPE);
++	FJMPI_Prequest_recv_init(top_buf_in, RADIUS*width, MPI_DTYPE, top_nbr, 101,
++                MPI_COMM_WORLD, &(request[1]));
++      FJMPI_Prequest_send_init(top_buf_out, RADIUS*width,MPI_DTYPE, top_nbr, 99,
++                MPI_COMM_WORLD, &(request[0]));
++
++  }
++  if(my_IDy > 0){
++	  send_data += RADIUS * width * sizeof(MPI_DTYPE);
++	  recv_data += RADIUS * width * sizeof(MPI_DTYPE);
++      FJMPI_Prequest_recv_init(bottom_buf_in,RADIUS*width, MPI_DTYPE, bottom_nbr, 99,
++                MPI_COMM_WORLD, &(request[3]));
++      FJMPI_Prequest_send_init(bottom_buf_out, RADIUS*width,MPI_DTYPE, bottom_nbr, 101,
++                MPI_COMM_WORLD, &(request[2]));
++
++  }
++  if (my_IDx < Num_procsx-1){
++	  send_data += RADIUS * height * sizeof(MPI_DTYPE);
++	  recv_data += RADIUS * height * sizeof(MPI_DTYPE);
++      FJMPI_Prequest_recv_init(right_buf_in, RADIUS*height, MPI_DTYPE, right_nbr, 1010,
++                MPI_COMM_WORLD, &(request[1+4]));
++      FJMPI_Prequest_send_init(right_buf_out, RADIUS*height, MPI_DTYPE, right_nbr, 990,
++              MPI_COMM_WORLD, &(request[0+4]));
++
++  }
++  if(my_IDx > 0){
++	  send_data += RADIUS * height * sizeof(MPI_DTYPE);
++	  recv_data += RADIUS * height * sizeof(MPI_DTYPE);
++      FJMPI_Prequest_recv_init(left_buf_in, RADIUS*height, MPI_DTYPE, left_nbr, 990,
++                MPI_COMM_WORLD, &(request[3+4]));
++      FJMPI_Prequest_send_init(left_buf_out, RADIUS*height, MPI_DTYPE, left_nbr, 1010,
++                MPI_COMM_WORLD, &(request[2+4]));
++
++  }
++
++
+   for (iter = 0; iter<=iterations; iter++){
+ 
+     /* start timer after a warmup iteration */
+@@ -358,22 +398,18 @@ int main(int argc, char ** argv) {
+ 
+     /* need to fetch ghost point data from neighbors in y-direction                 */
+     if (my_IDy < Num_procsy-1) {
+-      MPI_Irecv(top_buf_in, RADIUS*width, MPI_DTYPE, top_nbr, 101,
+-                MPI_COMM_WORLD, &(request[1]));
++                FJMPI_Prequest_start(&request[1]);
+       for (kk=0,j=jend-RADIUS+1; j<=jend; j++) for (i=istart; i<=iend; i++) {
+           top_buf_out[kk++]= IN(i,j);
+       }
+-      MPI_Isend(top_buf_out, RADIUS*width,MPI_DTYPE, top_nbr, 99,
+-                MPI_COMM_WORLD, &(request[0]));
++               FJMPI_Prequest_start(&request[0]);
+     }
+     if (my_IDy > 0) {
+-      MPI_Irecv(bottom_buf_in,RADIUS*width, MPI_DTYPE, bottom_nbr, 99,
+-                MPI_COMM_WORLD, &(request[3]));
++                FJMPI_Prequest_start(&(request[3]));
+       for (kk=0,j=jstart; j<=jstart+RADIUS-1; j++) for (i=istart; i<=iend; i++) {
+           bottom_buf_out[kk++]= IN(i,j);
+       }
+-      MPI_Isend(bottom_buf_out, RADIUS*width,MPI_DTYPE, bottom_nbr, 101,
+-                MPI_COMM_WORLD, &(request[2]));
++                FJMPI_Prequest_start(&request[2]);
+     }
+     if (my_IDy < Num_procsy-1) {
+       MPI_Wait(&(request[0]), MPI_STATUS_IGNORE);
+@@ -392,22 +428,18 @@ int main(int argc, char ** argv) {
+ 
+     /* need to fetch ghost point data from neighbors in x-direction                 */
+     if (my_IDx < Num_procsx-1) {
+-      MPI_Irecv(right_buf_in, RADIUS*height, MPI_DTYPE, right_nbr, 1010,
+-                MPI_COMM_WORLD, &(request[1+4]));
++                FJMPI_Prequest_start( &request[1+4]);
+       for (kk=0,j=jstart; j<=jend; j++) for (i=iend-RADIUS+1; i<=iend; i++) {
+           right_buf_out[kk++]= IN(i,j);
+       }
+-      MPI_Isend(right_buf_out, RADIUS*height, MPI_DTYPE, right_nbr, 990,
+-              MPI_COMM_WORLD, &(request[0+4]));
++              FJMPI_Prequest_start( &request[0+4]);
+     }
+     if (my_IDx > 0) {
+-      MPI_Irecv(left_buf_in, RADIUS*height, MPI_DTYPE, left_nbr, 990,
+-                MPI_COMM_WORLD, &(request[3+4]));
++                FJMPI_Prequest_start(&request[3+4]);
+       for (kk=0,j=jstart; j<=jend; j++) for (i=istart; i<=istart+RADIUS-1; i++) {
+           left_buf_out[kk++]= IN(i,j);
+       }
+-      MPI_Isend(left_buf_out, RADIUS*height, MPI_DTYPE, left_nbr, 1010,
+-                MPI_COMM_WORLD, &(request[2+4]));
++                FJMPI_Prequest_start(&request[2+4]);
+     }
+     if (my_IDx < Num_procsx-1) {
+       MPI_Wait(&(request[0+4]), MPI_STATUS_IGNORE);
+@@ -492,6 +524,9 @@ int main(int argc, char ** argv) {
+        plus one flop for the update of the input of the array        */
+     flops = (DTYPE) (2*stencil_size+1) * f_active_points;
+     avgtime = stencil_time/iterations;
++    printf("Send: %d\n",send_data);
++    printf("Recv: %d\n",recv_data);
++    printf("TotalTime: %lf\n",stencil_time);
+     printf("Rate (MFlops/s): "FSTR"  Avg time (s): %lf\n",
+            1.0E-06 * flops/avgtime, avgtime);
+   }
