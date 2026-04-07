@@ -5,12 +5,12 @@
 # Base compilers and language options
 #
 # C99 is required in some implementations.
-CC=fccpx -Nclang
+CC=fccpx -Nclang -DNDEBUG
 #EXTRA_CLIBS=-lrt
 # All of the Fortran code is written for the 2008 standard and requires preprocessing.
 FC=frt -std=f2018 -cpp -fexternal-blas -fblas-matmul-limit=0
 # C++11 may not be required but does no harm here.
-CXX=FCCpx -Nclang
+CXX=FCCpx -Nclang -DNDEBUG
 #
 # Compiler flags
 #
@@ -218,7 +218,7 @@ ISPCFLAG=-O3 --target=host --opt=fast-math
 # MPI-3
 #
 MPIDIR=/opt/FJSVxtclanga/tcsds-mpi-1.2.42
-MPICC=${MPIDIR}/bin/mpifccpx
+MPICC=${MPIDIR}/bin/mpifccpx -DNDEBUG
 MPICXX=${MPIDIR}/bin/mpiFCCpx
 MPIFORT=${MPIDIR}/bin/mpifrtpx
 MPIINC=-I${MPIDIR}/include
