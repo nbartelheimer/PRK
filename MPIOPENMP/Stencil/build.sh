@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. /vol0004/apps/oss/spack/share/spack/setup-env.sh
+spack load /fxt4hcv
 
 git checkout stencil.c
 git apply vanilla.patch
